@@ -369,13 +369,13 @@ bool isPinyinAcronymSequence(const QString &input)
     // 1. 必须包含至少一个英文字母（大小写）
     // 2. 可以包含数字和英文符号
     // 3. 长度在1-255之间（合理的文件名长度）
-    
+
     QString str = input.trimmed();
-    
+
     // 长度检查
     if (str.length() == 0 || str.length() > 255)
         return false;
-    
+
     // 必须包含至少一个英文字母
     bool hasLetter = false;
     for (const QChar &ch : str) {
@@ -384,15 +384,15 @@ bool isPinyinAcronymSequence(const QString &input)
             break;
         }
     }
-    
+
     if (!hasLetter)
         return false;
-    
+
     // 字符检查：允许字母、数字和常见符号
     QRegularExpression validCharsRegex("^[a-zA-Z0-9._-]+$");
     if (!validCharsRegex.match(str).hasMatch())
         return false;
-    
+
     return true;
 }
 
@@ -640,9 +640,101 @@ QString fileNameIndexDirectory()
     return QString("/run/user/%1/deepin-anything-server").arg(getuid());
 }
 
+int fileNameIndexVersion()
+{
+    // Read version from the filename index directory JSON file
+    const QString &indexDir = fileNameIndexDirectory();
+
+    // 这里假设JSON文件的名称是index.json，需要根据实际情况调整
+    // 如果有不同的JSON文件名称，请修改下面的代码
+    const QString &versionFilePath = QDir(indexDir).filePath("status.json");
+
+    QFile file(versionFilePath);
+    if (!file.exists()) {
+        qWarning() << "Filename index version file not found:" << versionFilePath;
+        return -1;
+    }
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open filename index version file:" << file.errorString();
+        return -1;
+    }
+
+    QByteArray jsonData = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData, &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "Failed to parse filename index version JSON:" << parseError.errorString();
+        return -1;
+    }
+
+    QJsonObject jsonObj = jsonDoc.object();
+    if (!jsonObj.contains("version")) {
+        qWarning() << "Filename index version JSON missing 'version' field or it's not a number";
+        return -1;
+    }
+
+    int version = jsonObj.value("version").isDouble() ? jsonObj.value("version").toInt()
+                                                      : jsonObj.value("version").toString().toInt();
+    return version;
+}
+
+int contentIndexVersion()
+{
+    // Read version from the content index directory JSON file
+    const QString &indexDir = contentIndexDirectory();
+
+    // 这里假设JSON文件的名称是index.json，需要根据实际情况调整
+    // 如果有不同的JSON文件名称，请修改下面的代码
+    const QString &versionFilePath = QDir(indexDir).filePath("index_status.json");
+
+    QFile file(versionFilePath);
+    if (!file.exists()) {
+        qWarning() << "Content index version file not found:" << versionFilePath;
+        return -1;
+    }
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open content index version file:" << file.errorString();
+        return -1;
+    }
+
+    QByteArray jsonData = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData, &parseError);
+
+    if (parseError.error != QJsonParseError::NoError) {
+        qWarning() << "Failed to parse content index version JSON:" << parseError.errorString();
+        return -1;
+    }
+
+    QJsonObject jsonObj = jsonDoc.object();
+    if (!jsonObj.contains("version")) {
+        qWarning() << "Content index version JSON missing 'version' field or it's not a number";
+        return -1;
+    }
+
+    return jsonObj["version"].toInt();
+}
+
 }   //  namespace Global
 
 namespace SearchUtility {
+
+bool isFilenameIndexAncestorPathsSupported()
+{
+    return Global::fileNameIndexVersion() > 3;
+}
+
+bool isContentIndexAncestorPathsSupported()
+{
+    return Global::contentIndexVersion() > 1;
+}
 
 QStringList extractBooleanKeywords(const SearchQuery &query)
 {
