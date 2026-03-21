@@ -40,3 +40,25 @@ endif ()
 include(GNUInstallDirs)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/src)
+
+# ==================== Testing Options ====================
+option(BUILD_TESTING "Build the testing tree" OFF)
+option(ENABLE_COVERAGE "Enable code coverage with gcov/lcov" OFF)
+
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(autotests)
+endif()
+
+if(ENABLE_COVERAGE)
+    if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        add_compile_options(
+            -g -O0 --coverage
+            -fprofile-arcs -ftest-coverage
+        )
+        add_link_options(--coverage)
+        message(STATUS "Code coverage enabled")
+    else()
+        message(WARNING "Coverage only supported with GCC/Clang")
+    endif()
+endif()
