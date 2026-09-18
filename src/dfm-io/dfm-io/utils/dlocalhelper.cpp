@@ -1093,10 +1093,22 @@ GFile *DLocalHelper::createGFile(const QUrl &uri)
     QString path = uri.userInfo().isEmpty() || !uri.userInfo().startsWith("originPath::") ?
                 QString() : uri.userInfo().replace("originPath::", "");
 
-    GFile *gfile = path.isEmpty() ?
-                g_file_new_for_uri(uri.toString().toLocal8Bit().data()) :
-                g_file_new_for_path(path.toLatin1().data());
-    return gfile;
+    if (path.isEmpty()) {
+        // Reconstruct URI from components to avoid QUrl::toString()
+        // percent-encoding backslashes, which conflicts with GIO's
+        // trash backend that uses raw backslashes.
+        QString decodedPath = uri.path(QUrl::FullyDecoded);
+        // Re-encode only structural URI characters to preserve URI validity
+        decodedPath.replace("%", "%25");
+        decodedPath.replace("#", "%23");
+        decodedPath.replace("?", "%3F");
+        QString uriStr = uri.scheme() + "://";
+        if (!uri.authority().isEmpty())
+            uriStr += uri.authority();
+        uriStr += decodedPath;
+        return g_file_new_for_uri(uriStr.toLocal8Bit().constData());
+    }
+    return g_file_new_for_path(path.toLatin1().constData());
 }
 
 QVariant DLocalHelper::getGFileInfoIcon(GFileInfo *gfileinfo, const char *key, DFMIOErrorCode &errorcode)
