@@ -148,22 +148,25 @@ bool isFileNameIndexDirectoryAvailable();
 
 /**
  * @brief Check if the filename index is ready for search operations.
- * This function checks both the physical existence of the index and its status to ensure
- * it's in the "monitoring" state and ready for search operations.
+ * Ready when the index physically exists, lastUpdateTime is present in
+ * index_status.json, and neither createInProgress nor updateInProgress
+ * is set (full build / recovery / rebuild in progress means the index is
+ * not trustworthy). The dirty/clean state is not checked: ordinary
+ * incremental updates keep the index searchable.
  * @return True if the filename index is ready for search, false otherwise.
  */
 bool isFileNameIndexReadyForSearch();
 
 /**
- * @brief Returns the current indexing status of the file name database.
+ * @brief Returns the current indexing status of the file name index,
+ * mapped from index_status.json (legacy semantics preserved).
  *
  * Possible status values:
- * - "loading"     : Initial loading of existing index
- * - "scanning"    : Actively scanning filesystem for changes
- * - "monitoring"  : Scan complete, now watching for filesystem events
- * - "closed"      : Normal shutdown state (anything terminated properly)
+ * - std::nullopt   : index missing or status unavailable
+ * - "scanning"     : full build / recovery / rebuild in progress (index not trustworthy)
+ * - "monitoring"   : index usable (ordinary incremental updates may still be running)
  *
- * @return QString The current status string (lowercase)
+ * @return The current status string (lowercase), or nullopt if unavailable
  */
 std::optional<QString> fileNameIndexStatus();
 
