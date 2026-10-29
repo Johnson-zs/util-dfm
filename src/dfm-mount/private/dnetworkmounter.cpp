@@ -604,7 +604,19 @@ DNetworkMounter::MountRet DNetworkMounter::mountWithUserInput(const QString &add
     QDBusInterface mntCtrl(kDaemonService, kMountControlPath, kMountControlIFace,
                            QDBusConnection::systemBus());
 
+    mntCtrl.setTimeout(60000);
     QDBusReply<QVariantMap> ret = mntCtrl.call(kMountControlMount, address, param);
+    if (!ret.isValid()) {
+        const auto &e = ret.error();
+        const QString name = e.name();
+        if (e.type() == QDBusError::NoReply || name == QStringLiteral("org.freedesktop.DBus.Error.NoReply")) {
+            QString checkMpt;
+            if (isMounted(address, checkMpt))
+                return { true, DeviceError::kNoError, checkMpt };
+            return { false, DeviceError::kGDBusErrorNoReply, "" };
+        }
+        return { false, DeviceError::kGDBusErrorNoReply, "" };
+    }
     auto mntRet = ret.value();
     QString mpt = mntRet.value(kDaemonMountRetKeyMpt).toString();
     int errNum = mntRet.value(kDaemonMountRetKeyErrno).toInt();
@@ -639,6 +651,17 @@ DNetworkMounter::MountRet DNetworkMounter::mountWithSavedInfos(const QString &ad
                             { kMountFsType, "cifs" } };
 
         QDBusReply<QVariantMap> ret = mntCtrl.call(kMountControlMount, address, param);
+        if (!ret.isValid()) {
+            const auto &e = ret.error();
+            const QString name = e.name();
+            if (e.type() == QDBusError::NoReply || name == QStringLiteral("org.freedesktop.DBus.Error.NoReply")) {
+                QString checkMpt;
+                if (isMounted(address, checkMpt))
+                    return { true, DeviceError::kNoError, checkMpt };
+                break;
+            }
+            break;
+        }
         auto mntRet = ret.value();
         QString mpt = mntRet.value(kDaemonMountRetKeyMpt).toString();
 
